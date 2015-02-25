@@ -516,3 +516,10 @@ zero copy
 	}); err != nil {
 		log.Fatal(err)
 	}
+
+
+* this talk is online
+
+[[https://github.com/heavenlyhash/talk.2015-boltdb][github.com/heavenlyhash/talk.2015-boltdb]]
+
+
