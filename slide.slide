@@ -485,3 +485,25 @@ performant
 zero copy
 
 
+* Appendix A: example (again)
+
+	db, err := bolt.Open("somefile.bolt", 0644, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucket([]byte("bukkit"))
+		if err != nil {
+			return err
+		}
+
+		if err := bucket.Put([]byte("key"), []byte("valoo")); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		log.Fatal(err)
+	}
