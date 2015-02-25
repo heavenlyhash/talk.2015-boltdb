@@ -23,11 +23,13 @@ performant
 zero copy
 
 
-
 * Bolt
 
 [[https://github.com/boltdb/bolt][github.com/boltdb/bolt]]
 by Ben Johnson @benbjohnson
+
+significant amounts of inspiration for this talk borrowed
+from talks by Tommi Virtanen, another boltdb contributor
 
 
 * Bolt
