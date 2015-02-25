@@ -185,6 +185,25 @@ single owner
 one `bolt.Open` at a time 
 
 
+* transactional
+
+if function `f` is updating the database, no one else is
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		// * nobody else can be writing *
+
+		if err := bucket.Put([]byte("key"), []byte("valoo")); err != nil {
+			// * if this returns an error, the transaction rolls back *
+			return err
+		}
+
+		// * after this return, the transaction commits *
+		return nil
+	})
+
+very easy to reason about
+
+
 * serializable
 
 bolt is a _serializable_ database
@@ -218,11 +237,12 @@ that is, bolt provides the strongest level of transactional isolation
 
 * serializable
 
-if function `f` is updating the database, no one else is
-
-very easy to reason about
-
 safe to do read-modify-write
+
+not all k/v stores can say this!
+
+try building a "load, increment, write" counter in levelDB.
+you can't.
 
 
 * bolt
