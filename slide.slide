@@ -271,6 +271,71 @@ pure go
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+_data_organization_ ...
+
+
+* nested buckets: creating
+
+	bucket, err := tx.CreateBucket([]byte("bukkit"))
+	if err != nil {
+		return err
+	}
+
+	sub, err := bucket.CreateBucket([]byte("sub"))
+	if err != nil {
+		return err
+	}
+
+	deep, err := sub.CreateBucket([]byte("deep"))
+	if err != nil {
+		return err
+	}
+
+you can stack buckets as deep as you like
+
+* nested buckets: using
+
+	bucket := tx.Bucket([]byte("bukkit"))
+	if bucket == nil {
+		return errors.New("bucket missing: bukkit")
+	}
+
+	sub := bucket.Bucket([]byte("sub"))
+	if sub == nil {
+		return errors.New("bucket missing: sub")
+	}
+
+	deep := sub.Bucket([]byte("deep"))
+	if deep == nil {
+		return errors.New("bucket missing: deep")
+	}
+
+this lets you namespace data into trees
+
+
+* detour: other k/v storage comparisons
+
+Other key-value stores have *no* data organization structures.
+(levelDB is one of these)
+
+you can hack around this:
+
+	key := fmt.Sprintf("%s-%s-%s", "bukkit", "sub", "deep")
+
+careful not to have any dashes in your keys, then! :D
+
+boltDB way is much better
+unambiguous in face of user defined keys
+
+
+* bolt
+
+key value store
+pure go
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+data organization
 _single_file_ ...
 
 
@@ -290,6 +355,7 @@ pure go
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+data organization
 single file
 _performant_(situationally!)_ ...
 
@@ -370,75 +436,9 @@ pure go
 single process, strong isolation
 parallel, transactional reads
 ordered storage
-single file
-performant
-_data_organization_ ...
-
-
-* nested buckets: creating
-
-	bucket, err := tx.CreateBucket([]byte("bukkit"))
-	if err != nil {
-		return err
-	}
-
-	sub, err := bucket.CreateBucket([]byte("sub"))
-	if err != nil {
-		return err
-	}
-
-	deep, err := sub.CreateBucket([]byte("deep"))
-	if err != nil {
-		return err
-	}
-
-you can stack buckets as deep as you like
-
-* nested buckets: using
-
-	bucket := tx.Bucket([]byte("bukkit"))
-	if bucket == nil {
-		return errors.New("bucket missing: bukkit")
-	}
-
-	sub := bucket.Bucket([]byte("sub"))
-	if sub == nil {
-		return errors.New("bucket missing: sub")
-	}
-
-	deep := sub.Bucket([]byte("deep"))
-	if deep == nil {
-		return errors.New("bucket missing: deep")
-	}
-
-this lets you namespace data into trees
-
-
-* detour: other k/v storage comparisons
-
-Other key-value stores have *no* data organization structures.
-(levelDB is one of these)
-
-you can hack around this:
-
-	key := fmt.Sprintf("%s-%s-%s", "bukkit", "sub", "deep")
-
-careful not to have any dashes in your keys, then! :D
-
-boltDB way is much better
-unambiguous in face of user defined keys
-
-
-* bolt
-
-key value store
-pure go
-single process, strong isolation
-parallel, transactional reads
-ordered storage
-single file
-performant
 data organization
+single file
+performant
 _zero_copy_ ...
 
 
@@ -462,9 +462,9 @@ pure go
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+data organization
 single file
 performant
-data organization
 zero copy
 
 
