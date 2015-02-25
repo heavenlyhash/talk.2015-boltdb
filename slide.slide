@@ -1,0 +1,470 @@
+BoltDB
+A simple, transactional k/v datastore in go
+18:00 25 Feb 2015
+Tags: testing, tdd, goconvey, gomn
+
+Eric Myhre
+https://polydawn.net/
+hash@exultant.us
+
+
+
+* Bolt
+
+[[https://github.com/boltdb/bolt][github.com/boltdb/bolt]]
+by Ben Johnson @benbjohnson
+
+
+* Bolt
+
+_key_value_store_ ...
+
+
+* It's a k/v store
+
+Put:
+
+	if err := bucket.Put([]byte("answer"), []byte("hello")); err != nil {
+		return err
+	}
+
+Get:
+
+	val := bucket.Get([]byte("answer"))
+	if val == nil {
+		// not found
+		return errors.New("no answer")
+	}
+	fmt.Println(val)
+
+all `[]byte`, all the time
+
+we'll come back to _bucket_
+
+
+* TODO, a slightly bigger example
+
+	db, err := bolt.Open(path, 0644, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucket([]byte("bukkit"))
+		if err != nil {
+			return err
+		}
+
+		if err := bucket.Put([]byte("key"), []byte("valoo")); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		log.Fatal(err)
+	}
+
+
+* Bolt
+
+key value store
+_pure_go_ ...
+
+
+* pure go
+
+'nuff said
+
+building is too fast to notice.
+
+works great as a library.
+
+breeze to bundle and ship.
+
+
+* library
+
+not something you talk to over the network;
+no client and server parts
+
+you could write the network bits, if you wanted;
+usually better to provide more value than just put/get 
+
+
+* bolt
+
+key value store
+pure go
+_single_file_ ...
+
+
+* single file
+
+all data stored in a local file (single file!)
+
+easy to reason about
+
+mmap'd: fast access, let the OS worry about page caching
+
+
+* bolt
+
+key value store
+pure go
+single file
+_single_process,_strong_isolation_ ...
+
+
+* single process
+
+single owner
+
+one `bolt.Open` at a time 
+
+
+* serializable
+
+bolt is a _serializable_ database
+
+we're all used to ACID durability guidelines -- but that's a broad heading
+
+"isolation" breaks down into categories:
+
+
+  Isolation level       Dirty reads     Non-repeatable reads    Phantoms
+  Read Uncommitted      may occur       may occur               may occur
+  Read Committed        -               may occur               may occur
+  Repeatable Read       -               -                       may occur
+  Serializable          -               -                       -
+
+(See also: [[https://en.wikipedia.org/wiki/Isolation_%28database_systems%29][wikipedia.org/wiki/Isolation_(database_systems)]] )
+
+
+* serializable
+
+some databases choose to weaken isolation guarantees
+
+this generally leads to higher performance under heavy concurrent loads, but also more strangeness
+
+MVCC (often) is an example of this
+
+bolt takes the high road:  bolt is serializable
+
+that is, bolt provides the strongest level of transactional isolation
+
+
+* serializable
+
+if function `f` is updating the database, no one else is
+
+very easy to reason about
+
+safe to do read-modify-write
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+_parallel,_transactional_reads_ ...
+
+
+* parallel read transactions
+
+Earlier we saw r/w transactions:
+
+	err := db.Update(func(tx *bolt.Tx) error {
+		...
+		return nil
+	})
+
+Read-only transactions look the same:
+
+	err := db.View(func(tx *bolt.Tx) error {
+		...
+		return nil
+	})
+
+`View` instead of `Update`
+
+
+* parallel read transactions
+
+read-only transactions act as if a snapshot was taken when `View` was invoked
+
+all the reads thereafter are totally consistent
+
+_other_reads_and_writes_can_continue_concurrently_
+
+(so bolt is a kind of MVCC: for arbitrarily parallel reads; but never parallel writes.)
+
+
+* parallel read transactions
+
+if you do a giant delay in a read transaction...
+
+	db.View(func(tx *bolt.Tx) error {
+		fmt.Printf("starting read transaction\n")
+		time.Sleep(500 * time.Millisecond)
+		fmt.Printf("observing %s\n", tx.Get([]byte("clock")))
+		return nil
+	})
+
+another goroutine could be ticking away updating that value every millisecond
+
+	go func() {
+		put := func(tx *bolt.Tx) error {
+			now := time.Now().Format("15:04:05.000")
+			fmt.Printf("updating at\t%s\n", now)
+			return tx.Put([]byte("clock"), []byte(now))
+		}
+		for true {
+			db.Update(put)
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+(it won't block)
+
+
+* parallel read transactions
+
+the writer won't block
+
+the printf will still see the value from 500ms ago:
+
+	updating at "15:04:05.000"
+	updating at "15:04:05.100"
+	starting read transaction
+	updating at "15:04:05.200"
+	updating at "15:04:05.300"
+	updating at "15:04:05.400"
+	updating at "15:04:05.500"
+	updating at "15:04:05.600"
+	observing "15:04:05.100"
+
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+parallel, transactional reads
+_ordered_storage_ ...
+
+
+* ordered storage
+
+storage is stored in key-sorted order
+
+seek to a range and iterate over a prefix?
+
+
+* ordered storage
+
+seek to a range and iterate over a prefix?
+
+sure:
+
+	prefix := []byte("someprefix-")
+	c := bucket.Cursor()
+	// while not at the end, and still has wanted prefix
+	for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+		fmt.Printf("%q %v\n", k, v)
+	}
+
+`seek` is fast: jumping down a B+ tree internally
+
+cursor iteration is linear scans thereafter
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+_performant_(situationally!)_ ...
+
+
+* performant
+
+BoltDB is simple.  this contributes a lot to performance
+
+there's no overhead of a query parser...
+executation planner...
+usage catalogue updater...
+
+all that stuff is cool; use a relational database for it
+bolt just cuts through to the heart of things
+
+all the latency in your access is right there in YOUR code
+
+
+* performant
+
+Copy-on-Write B+tree
+
+- two metadata pages: more recent wins
+- copy-on-write data pages
+
+data pages contain
+
+- buckets
+- values
+- freelist
+
+write transaction commit first syncs dirty pages to disk,
+then syncs updated meta page.
+
+read transactions pin pages that would otherwise recycled.
+
+
+* B+tree trade-offs vs LSM
+
+compare: Log-Structured Merge-tree (LSM), for example LevelDB
+
+- LSM appends to a log, keeps log contents also in memory
+- once log is big enough, sorts and dumps into immutable file
+- deletions are puts of special tombstone values
+- periodically compact immutable files into fewer, bigger ones
+- gets often need to look at multiple files
+- all disk writes are sequential; designed for HDDs with poor random I/O
+
+best fit:
+
+*LSM*: write-heavy workloads on spinning discs, latency spikes during compaction ok
+*Bolt*: read-heavy workloads
+
+
+* detour: other LevelDB comparisons
+
+*BoltDB*: has transactions.
+*LevelDB*: supports batch writing and read snapshots... but can *not* do a compare-and-swap safely.
+
+
+read the boltDB docs for more comparisons.
+they're honest.
+# they're frankly some of the tersest, best docs on levelDB internals.
+
+
+* large datasets are a go
+
+Bolt works fine with datasets (much) larger than working memory
+
+Bolt is currently in high-load production environments
+serving databases as large as *1TB*
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+performant
+_data_organization_ ...
+
+
+* nested buckets: creating
+
+	bucket, err := tx.CreateBucket([]byte("bukkit"))
+	if err != nil {
+		return err
+	}
+
+	sub, err := bucket.CreateBucket([]byte("sub"))
+	if err != nil {
+		return err
+	}
+
+	deep, err := sub.CreateBucket([]byte("deep"))
+	if err != nil {
+		return err
+	}
+
+you can stack buckets as deep as you like
+
+* nested buckets: using
+
+	bucket := tx.Bucket([]byte("bukkit"))
+	if bucket == nil {
+		return errors.New("bucket missing: bukkit")
+	}
+
+	sub := bucket.Bucket([]byte("sub"))
+	if sub == nil {
+		return errors.New("bucket missing: sub")
+	}
+
+	deep := sub.Bucket([]byte("deep"))
+	if deep == nil {
+		return errors.New("bucket missing: deep")
+	}
+
+this lets you namespace data into trees
+
+
+* detour: other k/v storage comparisons
+
+Other key-value stores have *no* data organization structures.
+(levelDB is one of these)
+
+you can hack around this:
+
+	key := fmt.Sprintf("%s-%s-%s", "bukkit", "sub", "deep")
+
+careful not to have any dashes in your keys, then! :D
+
+boltDB way is much better
+unambiguous in face of user defined keys
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+performant
+data organization
+_zero_copy_ ...
+
+
+* zero-copy
+
+the database file is mmapped read-only
+
+keys and values returned as `[]byte` point to this memory
+
+only valid while the transaction is alive (!)
+
+read-only operations are just in-memory b+tree operations
+
+kernel manages caching 
+
+
+* bolt
+
+key value store
+pure go
+single file
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+performant
+data organization
+zero copy
+
+
