@@ -96,23 +96,6 @@ usually better to provide more value than just put/get
 
 key value store
 pure go
-_single_file_ ...
-
-
-* single file
-
-all data stored in a local file (single file!)
-
-easy to reason about
-
-mmap'd: fast access, let the OS worry about page caching
-
-
-* bolt
-
-key value store
-pure go
-single file
 _single_process,_strong_isolation_ ...
 
 
@@ -167,7 +150,6 @@ safe to do read-modify-write
 
 key value store
 pure go
-single file
 single process, strong isolation
 _parallel,_transactional_reads_ ...
 
@@ -252,7 +234,6 @@ the printf will still see the value from 500ms ago:
 
 key value store
 pure go
-single file
 single process, strong isolation
 parallel, transactional reads
 _ordered_storage_ ...
@@ -287,10 +268,29 @@ cursor iteration is linear scans thereafter
 
 key value store
 pure go
-single file
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+_single_file_ ...
+
+
+* single file
+
+all data stored in a local file (single file!)
+
+easy to reason about
+
+mmap'd: fast access, let the OS worry about page caching
+
+
+* bolt
+
+key value store
+pure go
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+single file
 _performant_(situationally!)_ ...
 
 
@@ -367,10 +367,10 @@ serving databases as large as *1TB*
 
 key value store
 pure go
-single file
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+single file
 performant
 _data_organization_ ...
 
@@ -433,10 +433,10 @@ unambiguous in face of user defined keys
 
 key value store
 pure go
-single file
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+single file
 performant
 data organization
 _zero_copy_ ...
@@ -459,10 +459,10 @@ kernel manages caching
 
 key value store
 pure go
-single file
 single process, strong isolation
 parallel, transactional reads
 ordered storage
+single file
 performant
 data organization
 zero copy
