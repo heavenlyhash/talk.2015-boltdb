@@ -8,6 +8,21 @@ https://polydawn.net/
 hash@exultant.us
 
 
+* Bolt
+
+It's a...
+
+key value store
+pure go
+data organization
+single process, strong isolation
+parallel, transactional reads
+ordered storage
+single file
+performant
+zero copy
+
+
 
 * Bolt
 
